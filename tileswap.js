@@ -1,16 +1,63 @@
 import * as THREE from 'three';
+import { InteractionManager } from 'three.interactive';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-window.camera = camera;
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
-// renderer.setClearColorHex( 0xbbb2ea, 1 );
 renderer.setClearColor(0xbbb2ea, 1);
 document.body.appendChild(renderer.domElement);
 
-camera.position.z = 7;
+camera.position.z = 8;
+
+const interactionManager = new InteractionManager(
+  renderer,
+  camera,
+  renderer.domElement
+);
+
+let useWireframe = false;
+let isDragging = false;
+if ('ontouchstart' in window) {
+  let touchStart = { x: 0, y: 0 };
+  let touchEnd = { x: 0, y: 0 };
+  renderer.domElement.addEventListener('touchstart', (event) => {
+    useWireframe = false;
+    touchStart.x = event.touches[0].clientX;
+    touchStart.y = event.touches[0].clientY;
+  });
+  renderer.domElement.addEventListener('touchmove', (event) => {
+    useWireframe = false;
+    touchEnd.x = event.touches[0].clientX;
+    touchEnd.y = event.touches[0].clientY;
+    cubes.rotation.y += (touchEnd.x - touchStart.x) * 0.01;
+    cubes.rotation.x += (touchEnd.y - touchStart.y) * 0.01;
+    touchStart.x = touchEnd.x;
+    touchStart.y = touchEnd.y;
+  });
+  
+} else {
+  renderer.domElement.addEventListener('mousedown', (event) => {
+    useWireframe = false;
+    setTimeout(() => {
+      isDragging = true;
+    });
+  });
+  renderer.domElement.addEventListener('mouseup', (event) => {
+    setTimeout(() => {
+      useWireframe = false;
+      isDragging = false;
+    });
+  });
+  renderer.domElement.addEventListener('mousemove', (event) => {
+    useWireframe = false;
+    if (isDragging) {
+      cubes.rotation.y += event.movementX * 0.01;
+      cubes.rotation.x += event.movementY * 0.01;
+    }
+  });
+}
 
 const selected = {
   x: 0, y: 0, z: 0,
@@ -29,16 +76,22 @@ for (let x = 0; x < 3; x++) {
         side: THREE.DoubleSide,
       });
       const cube = new THREE.Mesh(geometry, material);
-      cube.position.x = x * 2 - 5/2; 
-      cube.position.y = y * 2 - 5/2;
-      cube.position.z = z * 2 - 5/2;
+      cube.position.x = x * 2 - 5/2 + 1/2; 
+      cube.position.y = y * 2 - 5/2 + 1/2;
+      cube.position.z = z * 2 - 5/2 + 1/2;
       cubeMatrix[x][y][z] = cube;
       cubes.add(cube);
+      interactionManager.add(cube);
+      cube.addEventListener('mousedown', (event) => {
+        if (useWireframe || isDragging) return;
+        event.stopPropagation();
+        useWireframe = false;
+        flip(x, y, z);
+      });
     }
   }
 }
 scene.add(cubes);
-cubeMatrix[0][0][0].material.wireframe = true;
 
 randomize();
 
@@ -46,6 +99,7 @@ document.addEventListener('keydown', (event) => {
   const { x, y, z } = selected;
   const cube = cubeMatrix[x][y][z];
   cube.material.wireframe = false;
+  useWireframe = true;
   switch (event.key) {
     case 'ArrowUp':
       cubes.rotation.x += 0.1;
@@ -84,8 +138,10 @@ document.addEventListener('keydown', (event) => {
       randomize();
       break;
   }
-  const { x: newX, y: newY, z: newZ } = selected;
-  cubeMatrix[newX][newY][newZ].material.wireframe = true;
+  if (useWireframe) {
+    const { x: newX, y: newY, z: newZ } = selected;
+    cubeMatrix[newX][newY][newZ].material.wireframe = true;
+  }
 });
 
 function randomize() {
@@ -153,8 +209,17 @@ function flip(x, y, z) {
 
 let start = new Date();
 function animate() {
-  let delta = new Date() - start;
-  start = new Date();
+  if (!useWireframe) {
+    for (const row of cubeMatrix) {
+      for (const col of row) {
+        for (const cube of col) {
+          cube.material.wireframe = false;
+        }
+      }
+    }
+  }
+
+  interactionManager.update();
 
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
