@@ -82,12 +82,22 @@ for (let x = 0; x < 3; x++) {
       cubeMatrix[x][y][z] = cube;
       cubes.add(cube);
       interactionManager.add(cube);
-      cube.addEventListener('mousedown', (event) => {
-        if (useWireframe || isDragging) return;
-        event.stopPropagation();
-        useWireframe = false;
-        flip(x, y, z);
-      });
+      if ('ontouchstart' in window) {
+        cube.addEventListener('click', (event) => {
+          if (useWireframe || isDragging) return;
+          event.stopPropagation();
+          useWireframe = false;
+          flip(x, y, z);
+        });
+      } else {
+        cube.addEventListener('mousedown', (event) => {
+          if (useWireframe || isDragging) return;
+          event.stopPropagation();
+          useWireframe = false;
+          flip(x, y, z);
+        });
+        
+      }
     }
   }
 }
@@ -143,7 +153,7 @@ document.addEventListener('keydown', (event) => {
     cubeMatrix[newX][newY][newZ].material.wireframe = true;
   }
 });
-
+window.randomize = randomize;
 function randomize() {
   for (const row of cubeMatrix) {
     for (const col of row) {
